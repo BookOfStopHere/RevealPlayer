@@ -440,6 +440,7 @@ enum {
     
     id<KxMovieGLRenderer> _renderer;
     CADisplayLink *_displayLink;
+    double _rotation;
 }
 
 + (Class) layerClass
@@ -461,7 +462,7 @@ enum {
 }
 
 - (void)startDeviceMotion {
-    
+
     _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(updateDeviceMotion)];
     
     [_displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
@@ -471,7 +472,9 @@ enum {
     // 2.1 Set the motion update interval to 1/60
     self.motionManager.deviceMotionUpdateInterval = 1.0 / 60.0;
     // 2.1 Start updating the motion using the reference frame CMAttitudeReferenceFrameXArbitraryCorrectedZVertical
-    [self.motionManager startDeviceMotionUpdatesUsingReferenceFrame:CMAttitudeReferenceFrameXArbitraryCorrectedZVertical];
+//    [self.motionManager startDeviceMotionUpdates];
+    [self.motionManager startDeviceMotionUpdatesUsingReferenceFrame:CMAttitudeReferenceFrameXArbitraryZVertical];
+    _rotation = 0;
     return;
     
     
@@ -484,28 +487,36 @@ enum {
 
 -(void)updateDeviceMotion
 {
-    // TODO: 2.2
-    static double last = M_PI_2;
     // 2.2 Get the deviceMotion from motionManager
     CMDeviceMotion *deviceMotion = self.motionManager.deviceMotion;
     
     // 2.2 Return if the returned CMDeviceMotion object is nil
-//    if(self.motionManager.accelerometerData == nil)
-//    {
-//        return;
-//    }
+    if(deviceMotion == nil)
+    {
+        return;
+    }
     
-            
     float vWdith = self.bounds.size.height;//_decoder.frameWidth;
     float vHeight = self.bounds.size.width ;//_decoder.frameHeight;
-            
-            
+    
+    double rotation = deviceMotion.attitude.yaw;
+    
+    if(rotation <= 0)
+    {
+        rotation = -rotation;
+    }
+    else
+    {
+        rotation = M_PI*2 - rotation;
+    }
+//   rotation = M_PI - atan2(deviceMotion.gravity.x, deviceMotion.gravity.y) ;
     float scale = MAX(_decoder.frameHeight/self.bounds.size.height,_decoder.frameWidth/self.bounds.size.width);
-    double rotation = M_PI - atan2(deviceMotion.gravity.x, deviceMotion.gravity.y) ;
+
     double deltaQ = atan2(vHeight,vWdith);
     float nH = sin(deltaQ + rotation) * sqrt(vHeight * vHeight + vWdith * vWdith);
     float nW = nH * vWdith/vHeight;
     scale = nH/vHeight;
+    
     //一开始是个角度
     //
     //1. 0-90
@@ -537,7 +548,6 @@ enum {
         scale = nH/vHeight;
     }
     self.transform = CGAffineTransformConcat( CGAffineTransformMakeRotation(-rotation), CGAffineTransformMakeScale(scale,scale));
-    
 }
 
 - (void)pause
